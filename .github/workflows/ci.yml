@@ -1,0 +1,80 @@
+name: Проверка проекта
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  scripts:
+    name: Проверка bash-скриптов
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Синтаксис скриптов (bash -n)
+        run: |
+          for script in check_api.sh analyze_logs.sh; do
+            bash -n "$script"
+            echo "$script: синтаксис в порядке"
+          done
+
+      - name: Мониторинг доступного API
+        run: |
+          # До трех попыток: httpbin.org иногда отвечает ошибкой 5xx
+          attempt=1
+          until ./check_api.sh https://httpbin.org/status/200; do
+            if [ "$attempt" -ge 3 ]; then
+              exit 1
+            fi
+            attempt=$((attempt + 1))
+            sleep 10
+          done
+
+      - name: Мониторинг недоступного API
+        run: |
+          if ./check_api.sh https://httpbin.org/status/500; then
+            echo "Скрипт должен был вернуть код 1"
+            exit 1
+          fi
+          if ./check_api.sh ftp://example.com; then
+            echo "Скрипт принял неверный URL"
+            exit 1
+          fi
+
+      - name: Анализ логов
+        run: |
+          ./analyze_logs.sh /tmp/access.log 300
+          lines=$(wc -l < /tmp/access.log)
+          echo "Строк в логе: $lines"
+          [ "$lines" -ge 300 ]
+
+  stack:
+    name: Запуск docker-compose
+    needs: scripts
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Поднять контейнеры
+        run: docker compose up -d
+
+      - name: Ответ через nginx
+        run: |
+          for i in $(seq 1 15); do
+            if curl -fs http://localhost/ | grep -q "Monitoring Service Active"
+            then
+              echo "Прокси отвечает"
+              exit 0
+            fi
+            sleep 2
+          done
+          docker compose logs
+          exit 1
+
+      - name: Состояние контейнеров
+        if: always()
+        run: docker compose ps
+
+      - name: Остановить контейнеры
+        if: always()
+        run: docker compose down
