@@ -1,0 +1,5 @@
+# скрипты и конфиги всегда с LF, иначе на Linux bash спотыкается о \r
+*.sh   text eol=lf
+*.yml  text eol=lf
+*.conf text eol=lf
+*.md   text eol=lf

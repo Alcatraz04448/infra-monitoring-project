@@ -1,0 +1,24 @@
+# логи (access.log создает analyze_logs.sh)
+*.log
+logs/
+
+# временные файлы
+tmp/
+*.tmp
+*.swp
+*~
+.DS_Store
+Thumbs.db
+
+# артефакты сборки и архивы для выкладки
+build/
+dist/
+out/
+*.tar.gz
+*.tgz
+*.zip
+
+# локальные настройки
+.env
+.idea/
+.vscode/
